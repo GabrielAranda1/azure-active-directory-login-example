@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { decode, verify } from 'jsonwebtoken';
 
 config()
 
@@ -31,8 +32,16 @@ app.get('/getToken', async (req, res) => {
   return res.status(200).json(response)
 });
 
-app.get('/redirect', (req, res) => {
-  console.log(req);
+app.get('/redirect', async (req, res) => {
+  const { code, client_info, session_state } = req.query
+
+  const response = await client.acquireTokenByCode({
+    code: code as string,
+    redirectUri: process.env.REDIRECT_TO!,
+    scopes: ['email', 'profile'],
+  })
+  console.log(response)
+  return res.status(200).json(response)
 })
 
 app.listen(3000, () => {
@@ -44,3 +53,50 @@ app.get('/logout', (req, res) => {
   const logoutUrl = `https://login.microsoftonline.com/${process.env.TENANT_ID!}/oauth2/v2.0/logout?post_logout_redirect_uri=https://dashboard.hubees.com.br/login`
   res.redirect(logoutUrl)
 })
+
+app.get('/protected', async (req, res) => {
+  if (!req.headers.authorization) return res.status(401).json({ message: 'Unauthorized' })
+
+  const [, token] = req.headers.authorization.split('Bearer ')
+
+  try {
+    const decoded = decode(token, { complete: true })
+    console.log(decoded)
+
+    const azureKeys: { keys: any[] } = await fetch(process.env.MICROSOFT_DISCOVERY_KEYS_URI!).then(res => res.json())
+
+    const keyExist = azureKeys.keys.find(key => key.kid === decoded?.header.kid)
+
+    if (!keyExist) return res.status(401).json({ message: 'Unauthorized' })
+
+    return res.status(200).json({ message: 'Authorized' })
+  } catch (err) {
+    throw err
+  }
+})
+
+app.get('/protected-cert', async (req, res) => {
+  if (!req.headers.authorization) return res.status(401).json({ message: 'Unauthorized' })
+
+  const [, token] = req.headers.authorization.split('Bearer ')
+
+  try {
+    const decoded = decode(token, { complete: true })
+    console.log(decoded)
+
+    const azureKeys: { keys: any[] } = await fetch(process.env.MICROSOFT_DISCOVERY_KEYS_URI!).then(res => res.json())
+
+    const key = azureKeys.keys.find(key => key.kid === decoded?.header.kid)
+
+    const certificado = `-----BEGIN CERTIFICATE-----\n${key.x5c[0]}\n-----END CERTIFICATE-----`
+
+    // if (!keyExist) return res.status(401).json({ message: 'Unauthorized' })
+
+    const isVerified = verify(token, certificado)
+
+    return res.status(200).json({ message: isVerified })
+  } catch (err) {
+    throw err
+  }
+})
+
