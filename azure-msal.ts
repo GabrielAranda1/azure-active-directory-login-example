@@ -1,10 +1,9 @@
 import * as msal from "@azure/msal-node";
 
-// Defina suas configurações de autenticação aqui
 const config: msal.Configuration = {
   auth: {
     clientId: process.env.APP_ID!,
-    authority: `https://login.microsoftonline.com/${process.env.TENANT_ID!}`,
+    authority: `${process.env.MICROSOFT_LOGIN_URI}/${process.env.TENANT_ID!}`,
     clientSecret: process.env.CERT_VALUE!,
   },
   system: {
