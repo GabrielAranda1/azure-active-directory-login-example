@@ -4,7 +4,7 @@ const config: msal.Configuration = {
   auth: {
     clientId: process.env.APP_ID!,
     authority: `${process.env.MICROSOFT_LOGIN_URI}/${process.env.TENANT_ID!}`,
-    clientSecret: process.env.CERT_VALUE!,
+    clientSecret: process.env.CLIENT_SECRET!,
   },
   system: {
     loggerOptions: {

@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/login', async function (req, res, next) {
   const authCodeUrlParameters = {
     scopes: ["openid", "profile", "email"],
-    redirectUri: process.env.REDIRECT_TO!,
+    redirectUri: process.env.AUTH_CALLBACK_URL!,
   };
 
   const authUrl = await client.getAuthCodeUrl(authCodeUrlParameters);
@@ -27,7 +27,7 @@ app.get('/redirect', async (req, res) => {
 
   const response = await client.acquireTokenByCode({
     code: code as string,
-    redirectUri: process.env.REDIRECT_TO!,
+    redirectUri: process.env.AUTH_CALLBACK_URL!,
     scopes: ['email', 'profile'],
   })
   console.log(response)
@@ -44,27 +44,6 @@ app.get('/logout', (req, res) => {
   res.redirect(logoutUrl)
 })
 
-app.get('/protected', async (req, res) => {
-  if (!req.headers.authorization) return res.status(401).json({ message: 'Unauthorized' })
-
-  const [, token] = req.headers.authorization.split('Bearer ')
-
-  try {
-    const decoded = decode(token, { complete: true })
-    console.log(decoded)
-
-    const azureKeys: { keys: any[] } = await fetch(process.env.MICROSOFT_DISCOVERY_KEYS_URI!).then(res => res.json())
-
-    const keyExist = azureKeys.keys.find(key => key.kid === decoded?.header.kid)
-
-    if (!keyExist) return res.status(401).json({ message: 'Unauthorized' })
-
-    return res.status(200).json({ message: 'Authorized' })
-  } catch (err) {
-    throw err
-  }
-})
-
 app.get('/protected-cert', async (req, res) => {
   if (!req.headers.authorization) return res.status(401).json({ message: 'Unauthorized' })
 
@@ -78,9 +57,9 @@ app.get('/protected-cert', async (req, res) => {
 
     const key = azureKeys.keys.find(key => key.kid === decoded?.header.kid)
 
+    if (!key) return res.status(401).json({ message: 'Unauthorized' })
+    
     const certificado = `-----BEGIN CERTIFICATE-----\n${key.x5c[0]}\n-----END CERTIFICATE-----`
-
-    // if (!keyExist) return res.status(401).json({ message: 'Unauthorized' })
 
     const isVerified = verify(token, certificado)
 
